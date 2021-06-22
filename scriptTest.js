@@ -25,6 +25,8 @@
 		const COMPONENT_OPTION = 3;
 		const COMPONENT_RADIO_BUTTON = 4;
 		const COMPONENT_CHECK_BOX = 5;
+		
+		const user = createUser();
 	
 			
 		var list = [];
@@ -36,17 +38,32 @@
 		var pendingRequest = 0;
 		var newPage = null;
 		var elements =[]; 
+		var emittingData = false;
 		
-	var idExperiment = 2;
-	var urlBase='http://localhost:8080'
+	var idExperiment = 9;
+	var urlBase='http://156.35.95.104:8080'
 		
 		var url = urlBase + '/TrackerServer/restws/track';
 		var urlRegisterComponent = urlBase + '/TrackerServer/restws/registerComponent';
 		var urlRegisterUserData = urlBase +'/TrackerServer/restws/registerUserData';
 		var urlDemographicData = urlBase + '/TrackerServer/restws/registerDemographicData';
 		var urlExperimentStatus = urlBase + '/TrackerServer/restws/experiment/status/' + idExperiment;
-		
-		var emittingData = false;
+	
+	
+	
+		function createUser(){
+			if(localStorage.getItem("user") === null || localStorage.getItem("user") === undefined){
+				let lettrs = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+				localStorage.setItem("user", 
+						lettrs[Math.floor(Math.random() * lettrs.length)] + 
+						lettrs[Math.floor(Math.random() * lettrs.length)] +
+						lettrs[Math.floor(Math.random() * lettrs.length)] +
+						(Math.floor(Math.random() * (999999999999 - 100000000000)) + 100000000000).toString() +
+						Date.now().toString()
+				);
+			}
+			return localStorage.getItem("user");
+		}
 	
 		function registerUserData()
 		{
@@ -76,19 +93,23 @@
 			    "sizeAvailH": screen.availHeight,
 			    "scrColorDepth": screen.colorDepth,
 			    "scrPixelDepth": screen.pixelDepth,
-			    "idExperiment" : idExperiment
+			    "idExperiment" : idExperiment,
+			    "sessionId" : user
 			};		
-		    
-		    if(emittingData){
-		    	$.ajax({
+			if(emittingData){
+				$.ajax({
 					data:  JSON.stringify(parametros),  
 					url:   urlRegisterUserData,
 					type:  'post',
-					success:  function (response) {},
+					beforeSend: function () {
+							$("#resultado").html("Registering user data...");		
+					},
+					success:  function (response) {
+							$("#result").html(response);
+					},
 				    async: false
-		    	});
-		    }
-			
+				});
+			}
 		}
 		
 		class Element {
@@ -100,11 +121,9 @@
 		    this.yF=yF;
 		    this.sceneId=sceneId;
 		  }
-		  
 		  getScene(){
 			  return this.sceneId;
 		  }
-		  
 		  isOver(mX,mY) {
 			  if(this.x < mX && mX< this.xF && this.y< mY && mY< this.yF){
 				  return true;
@@ -118,7 +137,7 @@
 		function detectElement(x,y){
 			var found = -1 ;
 			elements.forEach ( function(entry){
-				if (entry.isOver(x,y) && entry.getScene() === sceneId){
+				if (entry.isOver(x,y) && entry.getScene() === sceneId) {
 					found = entry.id;
 				}
 			});
@@ -135,13 +154,12 @@
 			return found;
 		}
 		
-		function registerElement(id, x, y, xF, yF, typeId, sceneId) {
+		function registerElement(id, x, y, xF, yF, typeId,sceneId) {
 			elements.push( new Element(id,x,y,xF,yF,sceneId));
 			addFocusAndBlurEvents(id);
 			if(typeId === COMPONENT_COMBOBOX || typeId === COMPONENT_OPTION){
 				addSelectionEvent(id);
 			}
-			console.log(elements)
 		}
 		
 		function addFocusAndBlurEvents(elementId){
@@ -224,10 +242,6 @@
 				item.elementId = detectElement(item.x, item.y);
 			}
 			
-			if(eventType === 1){
-				console.log("TECLAADO");
-			}
-			
 			list[list.length] = item;
 			
 			if ( list.length >= TOP_LIMIT ){
@@ -258,7 +272,6 @@
 				trackMouseUp();
 			});
 			parent.addEventListener('click',  function() {
-				console.log("Cliiiiiiiick")
 				trackClick();
 			});
 			parent.addEventListener('dblclick', function() {
@@ -391,22 +404,23 @@
 				"timeStamp": Date.now(),
 				"idExperiment" : idExperiment,
 				"typeId" : typeId,
-				"componentAssociated": componentAssociated
+				"componentAssociated": componentAssociated,
+			    "sessionId" : user
 			};
-		    
-		    if(emittingData){
+			
+			if(emittingData){
 				$.ajax({
-						data:  JSON.stringify(parametros),  
-						url:   urlRegisterComponent,
-						type:  'post',
-						beforeSend: function () {
-							
-						},
-						success:  function (response) {
-							
-						}
+					data:  JSON.stringify(parametros),  
+					url:   urlRegisterComponent,
+					type:  'post',
+					beforeSend: function () {
+						
+					},
+					success:  function (response) {
+						
+					}
 				});
-		    }
+			}
 		}
 		
 		function deliverChunk(chunk)
@@ -414,10 +428,11 @@
 		    var parametros = {
 		    	"timezone": (new Date()).getTimezoneOffset()/60 * (-1),
 				"list" : chunk,
-				"idExperiment" : idExperiment
+				"idExperiment" : idExperiment,
+			    "sessionId" : user
 			};
-		    
-		    if(emittingData){
+			
+			if(emittingData){
 				$.ajax({
 					data:  JSON.stringify(parametros),  
 					url:   url,
@@ -446,7 +461,7 @@
 				        alert("ERROR: " + jqXHR.statusText);
 				    }
 				});
-		    }
+			}
 		}
 		
 		function deliverData(list)
@@ -478,8 +493,8 @@
 			    "sceneId":sceneId,
 			    "idExperiment" : idExperiment
 			};
-		    
-		    if(emittingData){
+			
+			if(emittingData){
 				$.ajax({
 					data:  parametros,
 					url:   url,
@@ -492,7 +507,7 @@
 						paintTracking(response);
 					}
 				});
-		    }
+			}
 		}
 		
 		function getExperimentStatus(){
@@ -562,7 +577,8 @@
 				"timezone": (new Date()).getTimezoneOffset()/60 * (-1),
 		    	"id": id,
 				"numberValue": value,
-				"idExperiment" : idExperiment
+				"idExperiment" : idExperiment,
+			    "sessionId" : user
 			};
 			postAJAXDemographicData(parametros);
 		}
@@ -572,37 +588,50 @@
 				"timezone": (new Date()).getTimezoneOffset()/60 * (-1),
 		    	"id": id,
 				"stringValue": value,
-				"idExperiment" : idExperiment
+				"idExperiment" : idExperiment,
+			    "sessionId" : user
 			};
 			postAJAXDemographicData(parametros);
 		}
 		
 		function postDateDD(id, value) {
-			
 			var parametros = {
 				"timezone": (new Date()).getTimezoneOffset()/60 * (-1),
 		    	"id": id,
 				"dateValue": value,
-				"idExperiment" : idExperiment
+				"idExperiment" : idExperiment,
+			    "sessionId" : user
 			};
 			postAJAXDemographicData(parametros);
 		}
 		
 		function postAJAXDemographicData(parametros){
 			if(emittingData){
-				console.log(parametros)
 				$.ajax({
 					data:  JSON.stringify(parametros),  
 					url:   urlDemographicData,
 					type:  'post',
 					success:  function (response) {
 					},
-					error: function (err){
-						console.log("CASCAZU" + err)
+					error: function (){
 					}
 				});
 			}
 		}
 	
 
-function registerGenero(value) {postNumberDD(6, value);}function registerProfesion(value) {postStringDD(7, value);}function registerLateralidad(value) {postNumberDD(8, value);}function registerEdad(value) {postDateDD(9, value);}
+		function registerGenero(value) {
+			postNumberDD(28, value);
+		}
+		
+		function registerLateralidad(value) {
+			postNumberDD(29, value);
+		}
+		
+		function registerProfesion(value) {
+			postStringDD(30, value);
+		}
+		
+		function registerEdad(value) {
+			postDateDD(31, value);
+		}
